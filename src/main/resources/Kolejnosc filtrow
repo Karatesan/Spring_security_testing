@@ -1,0 +1,195 @@
+LOGIN I HASLO DO AWS: karatesan Joint666postgres
+
+
+
+Defaultflow:
+1. Authorization filter
+2. DefaultLoginPageGeneratingFilter
+3. UsernamePasswordAuthenticationFilter - wyciaga podane username i password
+4. ProviderManager - authenticate
+5. DaoAuthenticationProvider
+
+
+
+Jets duzo wiecej tych filtrow, te sa podstawowe
+
+1. najpeierw end user chce wejsc na jakas strone
+2. Spring przechwytuje ten request w filtrze, m.in AuthorizationFilter i DefaultLoginPageGeneratingFilter -
+    sprawdzaja, czy user jest zalogowany, jezeli nie to sprawdzaja, czy sciezka jest zabezpieczona, jezeli tak to
+    wyswiatlany jest formularz do logowania
+3. Jak user poda haasla to jest to przechwytywane przez UsernamePasswordAuthenticationFilter - filtr ten wyciaga username i apssword z requesta
+    i tworzy obiekt UsernamePasswordAuthenticationToken (implementation of Authentication interface). Potem filter odpala
+    metode Authenticate() z ProviderManager
+4. ProviderManager (implementation of AuthenticationManager) ogarnia liste wszystkich AuthenticationProviderow, ktore pasuja do obiektu authenticate/
+    i po kolei wywoluje w nich metode authenticate()
+5. w domyslnych ustawieniach zostanie wywolany DaoAuthenticationProvider
+package com.karatesan.BasicSpringSecurity.config;
+
+import jakarta.servlet.http.HttpServletRequest;
+import org.springframework.boot.autoconfigure.security.SecurityProperties;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.core.annotation.Order;
+import org.springframework.security.config.annotation.web.builders.HttpSecurity;
+import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
+import org.springframework.security.core.userdetails.User;
+import org.springframework.security.core.userdetails.UserDetails;
+import org.springframework.security.core.userdetails.UserDetailsService;
+import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
+import org.springframework.security.crypto.password.NoOpPasswordEncoder;
+import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.security.provisioning.InMemoryUserDetailsManager;
+import org.springframework.security.provisioning.JdbcUserDetailsManager;
+import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.web.cors.CorsConfiguration;
+import org.springframework.web.cors.CorsConfigurationSource;
+import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
+
+import javax.sql.DataSource;
+
+import java.beans.Customizer;
+import java.util.Arrays;
+import java.util.List;
+
+import static org.springframework.security.config.Customizer.withDefaults;
+
+@Configuration
+public class ProjectSecurityConfig {
+
+    @Bean
+    public PasswordEncoder passwordEncoder(){
+        return new BCryptPasswordEncoder();
+    }
+
+    //najnowsze rozwiazanie z dokumentacji springa,
+    //torzymy bean z corsConfigurationSource, ktora zawiera to co ptrzeba nam
+    //nastepnie w security filterChain wrzucamy z corsa jako lambda
+    //cors blokuje (przegladarka) requesty z obcego origina (np. inne url),
+    //dlatego musimy ustawic preflight headery, ktore mowia co sie moze laczyc z naszym api
+    @Bean
+    CorsConfigurationSource corsConfigurationSource() {
+        CorsConfiguration configuration = new CorsConfiguration();
+        configuration.setAllowedOrigins(List.of("http://localhost:4200"));
+        configuration.setAllowedMethods(List.of("*"));
+        configuration.setAllowCredentials(true);
+        configuration.setAllowedHeaders(List.of("*"));
+        UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
+        source.registerCorsConfiguration("/**", configuration);
+        return source;
+    }
+
+    @Bean
+    SecurityFilterChain defaultSecurityFilterChain(HttpSecurity http) throws Exception {
+        http
+                .cors((cors)->cors.configurationSource(corsConfigurationSource()))
+//                .csrf(AbstractHttpConfigurer::disable)
+                .authorizeHttpRequests((requests) -> requests
+                .requestMatchers("/myAccount","/myBalance", "/myLoans","myCards","/user").authenticated()
+                .requestMatchers("/notices", "/contact","/register").permitAll());
+        http.formLogin(withDefaults());
+        http.httpBasic(withDefaults());
+        return http.build();
+    }
+
+
+}
+    /*
+// NoOpPasswordEncoder nie jest rekomendowany do produkcji,
+    //ten encoder nic nie robi, do testow gdy w bazie mamy zapisane prawdzie haslo
+    //spring wymaga jakiegos encoder wiec jak chcemy testowac todajemy tego, a on gowno rob
+@Bean
+public PasswordEncoder passwordEncoder(){
+    return NoOpPasswordEncoder.getInstance();
+}
+
+    //jdbcuserdetailsmanager pobiera z bazy danych uzytkownika do weryfikacji,
+    //zeby to dzialalo musimy miec przygotowana tebele z users i authorities w konkretny sposob
+    //mamy tam username i password, nie ma weryfikacji po mailu
+    //JdbcUserDetailsManager jest ok w mniejszych aplikacjiach
+    //wykomentowalem to, zeby dzialal moj custom userdetailsservice
+//    @Bean
+//    public UserDetailsService userDetailsService(DataSource dataSource){
+//        return new JdbcUserDetailsManager(dataSource);
+//    }
+
+    /*
+        @Bean
+        public InMemoryUserDetailsManager userDetailsService(){
+
+        Podejscie 1
+        bean tworzacy in memory user details, jest to prosty koncept, rozwiniecie tego z usera tworzonego w appliation.properties
+        user jest przechowywany w pamieci aplikacji, nie korzystac w produkcji
+
+            UserDetails admin = User.withDefaultPasswordEncoder()
+                    .username("admin")
+                    .authorities("admin")
+                    .password("12345").build();
+            UserDetails user = User.withDefaultPasswordEncoder()
+                    .username("user")
+                    .authorities("read")
+                    .password("12345").build();
+            return new InMemoryUserDetailsManager(admin,user);
+
+
+        Podejscie 2
+Wymaga bean z passwordEncoder
+
+        UserDetails admin = User.withUsername("admin")
+                .authorities("admin")
+                .password("12345").build();
+        UserDetails user = User.withUsername("user")
+                .authorities("read")
+                .password("12345").build();
+        return new InMemoryUserDetailsManager(admin,user);
+
+    }
+    */
+
+
+SpringSecurity po autoryzacji wysyla do przegladarki jsessionid cookie, ktory ejst jakims randomowych chyba ciagiem znakow, przez co nie trzeba sie logowac po kazdym odswiezeniu
+Spring przechowuje tez to ciasteczko w aplikacji
+
+Jak stworzymy bean z jakims userdetails np. inMemoryUserDetailsService to to bedzie brane przez Spring z automatu. Domyslnie jezeli nie zmienimy tego,
+to DaoAuthenticationProvider jest uzywany
+
+userDetails to prosty interfejs, ktory przechowuje informacje o userze i deklaruje metody jak getUsername getPassword itp
+userDetailsService to interfejs, ktory deklaruje metode loadUserByUsername, ktory mowi jak odszykac usera czy to w db czy inny mzrodle
+userDetailsManager - to interfejs, ktory ma kilka metod do zarzadanie userrem jak tworzenie updatowanie itp
+
+BASIC AUTHENTICATION==============================================================================================
+
+Trzeba pameitac ze wsyztskei requesty z frona musza miec header nazwany Authorization
+httpHeaders = httpHeaders.append('Authorization', 'Basic ' + window.btoa(this.user.email + ':' + this.user.password));
+
+Basic Authentication is a simple authentication scheme defined in the HTTP protocol.
+It is a way for a client to provide a username and password when making a request to a server.
+The basic idea is to include the credentials in the request header. Here's how Basic Authentication works:
+Client Request: When a client wants to access a protected resource, it includes an "Authorization" header in the HTTP request.
+The value of this header is constructed by combining the username and password with a colon (":")
+and then Base64 encoding the resulting string. For example, if the username is "user" and the password is "pass,"
+the Authorization header would be:
+Authorization: Basic dXNlcjpwYXNz
+The string "dXNlcjpwYXNz" is the Base64 encoding of "user:pass."
+
+Server Authentication: The server, upon receiving the request, extracts the Authorization header,
+decodes the Base64-encoded string, and retrieves the username and password. The server then checks these credentials
+against its authentication system. Access Granted or Denied: If the credentials are valid, the server
+allows access to the requested resource. If the credentials are invalid, the server responds with a 401 Unauthorized status code,
+indicating that the client needs to provide valid credentials.While Basic Authentication is simple to implement,
+it has some significant security limitations. The main drawback is that the credentials are sent in an easily decodable Base64
+format, which makes it vulnerable to interception if the communication is not secured using HTTPS. For this reason,
+it's generally recommended to use more secure authentication methods, such as OAuth or token-based authentication,
+especially when working with sensitive information.
+
+
+CORS ===========================================================================
+
+CORS konfigurujemy w springu, tak zeby apka reagowala na preflight request, ktory przegladarka wysyla po otrzymaniu jakeigos requesta.
+Sprawdza w ten sposob, czy nasze api pozwala na laczenei z danym klientem
+
+
+CSRF=========================================================================
+
+Ktos moze sie podpiac pod post requesta, ktorego sie wysyla, jak sie kliknie w jakis zly link
+
+Musimy stworzyc dodatkowy filter w aplikacji, ktory bedzie przechwytywal request i sprawdzal ciasteczko czy jest CsrfToken

@@ -1,0 +1,31 @@
+#tym ustawiamy domyslnego usera - login i haslo, mzoemy z tego korzystac np w prostej apce albo testach
+#nie potrzeba do tego zadnej dodatkowej konfiguracji
+#spring:
+#  security:
+#    user:
+#      name: karatesan
+#      password: 12345
+
+spring:
+  datasource:
+    url: jdbc:postgresql://localhost:5432/springsecurity
+    username: postgres
+    password: joint666
+    driver-class-name: org.postgresql.Driver
+  jpa:
+    show-sql: true
+    properties:
+      hibernate:
+        format_sql: true
+  #schema.sql nie bedzie automatycznie odpalane przy starcie
+  sql:
+    init:
+      mode: never
+#do logowania jakis rzeczy ze springa, wywalic normalnie
+  logging:
+    level:
+      org:
+        springframework:
+          security:
+            web:
+              filterChainProxy: DEBUG

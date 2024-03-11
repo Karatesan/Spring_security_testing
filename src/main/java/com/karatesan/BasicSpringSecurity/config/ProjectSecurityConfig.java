@@ -3,22 +3,12 @@ package com.karatesan.BasicSpringSecurity.config;
 import com.karatesan.BasicSpringSecurity.filter.AuthoritiesLoggingAfterFilter;
 import com.karatesan.BasicSpringSecurity.filter.CsrfCookieFilter;
 import com.karatesan.BasicSpringSecurity.filter.RequestValidationBeforeFilter;
-import jakarta.servlet.http.HttpServletRequest;
-import org.springframework.boot.autoconfigure.security.SecurityProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.core.annotation.Order;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
-import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.config.http.SessionCreationPolicy;
-import org.springframework.security.core.userdetails.User;
-import org.springframework.security.core.userdetails.UserDetails;
-import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
-import org.springframework.security.crypto.password.NoOpPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
-import org.springframework.security.provisioning.InMemoryUserDetailsManager;
-import org.springframework.security.provisioning.JdbcUserDetailsManager;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.www.BasicAuthenticationFilter;
 import org.springframework.security.web.csrf.CookieCsrfTokenRepository;
@@ -26,11 +16,6 @@ import org.springframework.security.web.csrf.CsrfTokenRequestAttributeHandler;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
-
-import javax.sql.DataSource;
-
-import java.beans.Customizer;
-import java.util.Arrays;
 import java.util.List;
 
 import static org.springframework.security.config.Customizer.withDefaults;
@@ -55,6 +40,12 @@ public class ProjectSecurityConfig {
         configuration.setAllowedMethods(List.of("*"));
         configuration.setAllowCredentials(true);
         configuration.setAllowedHeaders(List.of("*"));
+        //By default, browsers restrict certain headers in cross-origin requests for security reasons.
+        // The Authorization header is one of those headers that is not automatically included in cross-origin requests.
+        //Without this configuration, when a request is made from a different origin (e.g., from http://localhost:4200 to your server),
+        // the browser may block the client-side JavaScript code from accessing the Authorization header in the response
+        // due to the same-origin policy.
+        configuration.setExposedHeaders(List.of("Authorization"));
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", configuration);
         return source;
@@ -68,8 +59,8 @@ public class ProjectSecurityConfig {
         requestHandler.setCsrfRequestAttributeName("_csrf");
 
         http
-                .securityContext((securityContext)->securityContext.requireExplicitSave(false))
-                .sessionManagement(session->session.sessionCreationPolicy(SessionCreationPolicy.ALWAYS))
+                //mowimy springowi, zeby nie tworzyl jseassionid, ze sami to ogarniemy
+                .sessionManagement(session->session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .cors((cors)->cors.configurationSource(corsConfigurationSource()))
                 .csrf((csrf)-> csrf
                         .csrfTokenRequestHandler(requestHandler)

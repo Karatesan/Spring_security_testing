@@ -1,6 +1,7 @@
 package com.karatesan.BasicSpringSecurity.config;
 
 import com.karatesan.BasicSpringSecurity.filter.AuthoritiesLoggingAfterFilter;
+import com.karatesan.BasicSpringSecurity.filter.AuthoritiesLoggingAtFilter;
 import com.karatesan.BasicSpringSecurity.filter.CsrfCookieFilter;
 import com.karatesan.BasicSpringSecurity.filter.RequestValidationBeforeFilter;
 import jakarta.servlet.http.HttpServletRequest;
@@ -68,6 +69,22 @@ public class ProjectSecurityConfig {
         requestHandler.setCsrfRequestAttributeName("_csrf");
 
         http
+                /*
+.securityContext((securityContext)->securityContext.requireExplicitSave(false))
+    This part configures the SecurityContext within Spring Security. SecurityContext is an object that holds the details of
+    the currently authenticated principal (user) and potentially the security-related details associated with the request.
+    In this configuration, it sets requireExplicitSave to false. This means that the SecurityContextHolder will automatically
+    save the SecurityContext after each request without explicitly calling SecurityContextHolder.getContext().setAuthentication(...)
+    or similar. This can be useful in certain scenarios where you want the SecurityContext to be saved automatically.
+
+.sessionManagement(session->session.sessionCreationPolicy(SessionCreationPolicy.ALWAYS))
+    This part configures the session management in Spring Security. Sessions are mechanisms to track user state across multiple requests.
+    The sessionCreationPolicy is set to SessionCreationPolicy.ALWAYS, which means that a session will always be created if one doesn't exist.
+    This policy is commonly used in stateful applications where sessions are necessary.
+    SessionCreationPolicy.ALWAYS: A session will always be created if one doesn't exist.
+
+
+                 */
                 .securityContext((securityContext)->securityContext.requireExplicitSave(false))
                 .sessionManagement(session->session.sessionCreationPolicy(SessionCreationPolicy.ALWAYS))
                 .cors((cors)->cors.configurationSource(corsConfigurationSource()))
@@ -80,6 +97,7 @@ public class ProjectSecurityConfig {
                 //dodajemy filter po wskazanym filtrze
                 .addFilterAfter(new CsrfCookieFilter(), BasicAuthenticationFilter.class)
                 .addFilterBefore(new RequestValidationBeforeFilter(),BasicAuthenticationFilter.class)//dodajemy nasz filter przed filtrem authenticujacym
+                .addFilterAt(new AuthoritiesLoggingAtFilter(),BasicAuthenticationFilter.class)
                 .addFilterAfter(new AuthoritiesLoggingAfterFilter(),BasicAuthenticationFilter.class)
                 .authorizeHttpRequests((requests) -> requests
 //                        .requestMatchers("/myAccount").hasAuthority("VIEWACCOUNT")

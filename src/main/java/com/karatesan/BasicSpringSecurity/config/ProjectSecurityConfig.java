@@ -1,8 +1,6 @@
 package com.karatesan.BasicSpringSecurity.config;
 
-import com.karatesan.BasicSpringSecurity.filter.AuthoritiesLoggingAfterFilter;
-import com.karatesan.BasicSpringSecurity.filter.CsrfCookieFilter;
-import com.karatesan.BasicSpringSecurity.filter.RequestValidationBeforeFilter;
+import com.karatesan.BasicSpringSecurity.filter.*;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
@@ -17,7 +15,6 @@ import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 import java.util.List;
-
 import static org.springframework.security.config.Customizer.withDefaults;
 
 @Configuration
@@ -72,6 +69,8 @@ public class ProjectSecurityConfig {
                 .addFilterAfter(new CsrfCookieFilter(), BasicAuthenticationFilter.class)
                 .addFilterBefore(new RequestValidationBeforeFilter(),BasicAuthenticationFilter.class)//dodajemy nasz filter przed filtrem authenticujacym
                 .addFilterAfter(new AuthoritiesLoggingAfterFilter(),BasicAuthenticationFilter.class)
+                .addFilterAfter(new JWTTokenGeneratorFilter(), BasicAuthenticationFilter.class)
+                .addFilterBefore(new JWTTokenValidatorFilter(), BasicAuthenticationFilter.class)
                 .authorizeHttpRequests((requests) -> requests
 //                        .requestMatchers("/myAccount").hasAuthority("VIEWACCOUNT")
 //                        .requestMatchers("/myBalance").hasAnyAuthority("VIEWACCOUNT","VIEWBALANCE")
